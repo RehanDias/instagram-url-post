@@ -1,0 +1,165 @@
+// Import the Axios library for making HTTP requests
+const axios = require("axios");
+
+// Instagram API base URL for fetching user feed
+const baseFeedUrl = "https://www.instagram.com/api/v1/feed/user/";
+
+// User-specific cookies and headers for authentication
+const cookie = '...';  // Replace with actual cookie values
+const userAgent = '...';  // Replace with actual user agent value
+
+// Headers to be included in the request
+const headers = {
+  Cookie: cookie,
+  "Sec-Fetch-Mode": "cors",
+  "Sec-Fetch-Site": "same-origin",
+  "User-Agent": userAgent,
+  "Viewport-Width": "430",
+  "X-Asbd-Id": "129477",
+  "X-Ig-App-Id": "1217981644879628",
+  "X-Ig-Www-Claim": "hmac.AR38bJjwvCYi8tKF_9I5XYtMbWh91oYFvuO9h7H9Dq1eIpCm",
+  "X-Requested-With": "XMLHttpRequest",
+};
+
+// Function to fetch user ID from the initial endpoint
+function fetchUserId(username) {
+  const initialFeedUrl = `${baseFeedUrl}${username}/username/?count=12`;
+
+  console.log("Fetching URL:", initialFeedUrl);
+
+  return axios
+    .get(initialFeedUrl, { headers: headers })
+    .then((response) => {
+      const data = response.data;
+      if (data.user && data.user.pk_id) {
+        return data.user.pk_id;
+      } else {
+        throw new Error("Error: Unable to get user ID from the response.");
+      }
+    })
+    .catch((error) => {
+      console.error("Error fetching user ID:", error.message);
+      throw error;
+    });
+}
+
+// Function to fetch feed with user_id and max_id
+function fetchFeed(userId, maxId = null, postNumber = 1) {
+  let feedUrl = `${baseFeedUrl}${userId}/?count=12`;
+
+  if (maxId) {
+    feedUrl += `&max_id=${maxId}`;
+  }
+
+  axios
+    .get(feedUrl, { headers: headers })
+    .then((response) => {
+      const data = response.data;
+
+      if (data.items && data.items.length > 0) {
+        data.items.forEach((item, index) => {
+          const postIndex = postNumber + index;
+          const username = item.user.username;
+
+          console.log(`Post Number ${postIndex} by ${username}`);
+
+          if (item.carousel_media && item.carousel_media.length > 0) {
+            const processedItems = [];
+
+            item.carousel_media.forEach((carouselItem, carouselIndex) => {
+              if (
+                carouselItem.video_versions &&
+                carouselItem.video_versions.length > 0
+              ) {
+                const videoUrl = carouselItem.video_versions[0].url;
+                console.log("Video URL (Carousel Video):", videoUrl);
+              } else if (carouselItem.image_versions2) {
+                const imageUrl = carouselItem.image_versions2.candidates[0].url;
+
+                const isLastItem =
+                  carouselIndex === item.carousel_media.length - 1;
+
+                if (isLastItem) {
+                  const postedOn = getFormattedDateTime(
+                    carouselItem.taken_at,
+                    carouselIndex === 0
+                  );
+                  console.log("Image URL (Carousel Image):", imageUrl);
+                  processedItems.push({ imageUrl, postedOn, item });
+                } else {
+                  console.log("Image URL (Carousel Image):", imageUrl);
+                }
+
+                printLikeAndCommentInfo(carouselItem);
+              }
+            });
+
+            printLikeAndCommentInfo(item);
+
+            const mainItemPostedOn = getFormattedDateTime(
+              item.carousel_media[0].taken_at
+            );
+            console.log("POSTED ON:", mainItemPostedOn);
+            console.log();
+          } else if (item.video_versions && item.video_versions.length > 0) {
+            const videoUrl = item.video_versions[0].url;
+            const postedOn = getFormattedDateTime(item.taken_at);
+            console.log("Video URL (Single Video):", videoUrl);
+            printLikeAndCommentInfo(item);
+            console.log("POSTED ON:", postedOn);
+            console.log();
+          } else if (item.image_versions2) {
+            const imageUrl = item.image_versions2.candidates[0].url;
+            const postedOn = getFormattedDateTime(item.taken_at);
+            console.log("Image URL (Single Image):", imageUrl);
+            printLikeAndCommentInfo(item);
+            console.log("POSTED ON:", postedOn);
+            console.log();
+          }
+        });
+      }
+
+      const nextMaxId = data.next_max_id;
+      if (nextMaxId) {
+        fetchFeed(userId, nextMaxId, postNumber + data.items.length);
+      }
+    })
+    .catch((error) => {
+      console.error("Error fetching feed:", error.message);
+    });
+}
+
+// Function to print like and comment information
+function printLikeAndCommentInfo(item) {
+  if (item.like_count) {
+    console.log("=================================");
+    console.log("Total Likes:", item.like_count);
+  }
+  if (item.caption && item.caption.text) {
+    console.log("Comments:", item.caption.text);
+  }
+}
+
+// Function to format timestamp to a human-readable date and time in Jakarta timezone
+function getFormattedDateTime(timestamp) {
+  const jakartaOffset = 7 * 60 * 60;
+  const jakartaTime = new Date((timestamp + jakartaOffset) * 1000);
+  const formattedDateTime = jakartaTime
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
+  return formattedDateTime;
+}
+
+// Replace 'rehandiazz' with the actual username
+const username = "rehandiazz";
+
+// Call the function to fetch user ID
+fetchUserId(username)
+  .then((userId) => {
+    // Call the function to fetch the feed without max_id initially
+    fetchFeed(userId);
+  })
+  .catch((error) => {
+    console.error("Error:", error.message);
+  });
