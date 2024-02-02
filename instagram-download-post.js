@@ -6,7 +6,8 @@ const baseFeedUrl = "https://www.instagram.com/api/v1/feed/user/";
 
 // User-specific cookies and headers for authentication
 const cookie = '...';  // Replace with actual cookie values
-const userAgent = '...';  // Replace with actual user agent value
+const userAgent =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1";
 
 // Headers to be included in the request
 const headers = {
